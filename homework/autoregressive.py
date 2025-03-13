@@ -55,10 +55,47 @@ class AutoregressiveModel(torch.nn.Module):
 
     def __init__(self, d_latent: int = 128, n_tokens: int = 2**10):
         super().__init__()
-        raise NotImplementedError()
+#         raise NotImplementedError()
+        self.embedding = nn.Embedding(n_tokens, d_latent)
+        encoder_layer = nn.TransformerEncoderLayer(
+            d_model=d_latent,
+            nhead=8,
+            dim_feedforward=4*d_latent,
+            batch_first=True
+        )
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.output_layer = nn.Linear(d_latent, n_tokens)
+        self.n_tokens = n_tokens
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
-        raise NotImplementedError()
+#         raise NotImplementedError()
+        B, h, w = x.shape
+        seq_len = h * w
+        x_flat = x.view(B, seq_len)
+        embeddings = self.embedding(x_flat)
+
+        shifted_embeds = torch.zeros_like(embeddings)
+        shifted_embeds[:, 1:] = embeddings[:, :-1].clone()
+
+        mask = torch.nn.Transformer.generate_square_subsequent_mask(seq_len).to(x.device)
+        transformer_output = self.transformer_encoder(shifted_embeds, mask)
+
+        logits = self.output_layer(transformer_output)
+        logits = logits.view(B, h, w, self.n_tokens)
+        return logits, {}
 
     def generate(self, B: int = 1, h: int = 30, w: int = 20, device=None) -> torch.Tensor:  # noqa
-        raise NotImplementedError()
+#         raise NotImplementedError()
+        device = device or torch.device('cpu')
+        output = torch.zeros((B, h * w), dtype=torch.long, device=device)
+        for i in range(h * w):
+            input_seq = torch.roll(output, shifts=1, dims=1)
+            input_seq[:, 0] = 0
+            input_reshaped = input_seq.view(B, h, w)
+            with torch.no_grad():
+                logits, _ = self.forward(input_reshaped)
+            logits_flat = logits.view(B, h * w, -1)
+            next_logits = logits_flat[:, i, :]
+            next_token = torch.argmax(next_logits, dim=-1)
+            output[:, i] = next_token
+        return output.view(B, h, w)

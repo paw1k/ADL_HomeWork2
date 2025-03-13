@@ -21,15 +21,57 @@ class Compressor:
 
         Use arithmetic coding.
         """
-        raise NotImplementedError()
+#         raise NotImplementedError()
+        with torch.no_grad():
+            tokens = self.tokenizer.encode(x.unsqueeze(0))  # Add batch dimension
+        tokens = tokens.squeeze(0)
+        seq_len = tokens.shape[0]
+        vocab_size = self.autoregressive.vocab_size
+
+        cdfs = []
+        for i in range(seq_len):
+            if i == 0:
+                prev_tokens = torch.tensor([], dtype=torch.long, device=x.device)
+            else:
+                prev_tokens = tokens[:i]
+            with torch.no_grad():
+                logits = self.autoregressive(prev_tokens.unsqueeze(0))
+            probs = torch.softmax(logits.squeeze(0), dim=-1)
+            cdf = torch.cat([torch.zeros(1, device=probs.device), torch.cumsum(probs, dim=0)])
+            cdfs.append(cdf.unsqueeze(0))
+
+        cdfs_tensor = torch.cat(cdfs, dim=0).cpu()
+        symbols = tokens.cpu().to(torch.int16)
+
+        byte_stream = torchac.encode_float_cdf(cdfs_tensor, symbols, check_input_bounds=True)
+        return byte_stream
 
     def decompress(self, x: bytes) -> torch.Tensor:
         """
         Decompress a tensor into a PIL image.
         You may assume the output image is 150 x 100 pixels.
         """
-        raise NotImplementedError()
+#         raise NotImplementedError()
+        h, w = 150, 100
+        patch_size = self.tokenizer.patch_size
+        seq_len = (h // patch_size) * (w // patch_size)
 
+        symbols = []
+        device = self.autoregressive.device
+        for i in range(seq_len):
+            prev_tokens = torch.tensor(symbols, dtype=torch.long, device=device)
+            with torch.no_grad():
+                logits = self.autoregressive(prev_tokens.unsqueeze(0))  # [1, vocab_size]
+            probs = torch.softmax(logits.squeeze(0), dim=-1)
+            cdf = torch.cat([torch.zeros(1, device=device), torch.cumsum(probs, dim=0)]).cpu().unsqueeze(0)
+            # Decode one symbol at a time
+            symbol = torchac.decode_float_cdf(cdf, x[i:(i+1)] if i == 0 else x)  # Simplified example
+            symbols.append(symbol.item())
+
+        tokens = torch.tensor(symbols, dtype=torch.long, device=device)
+        with torch.no_grad():
+            reconstructed = self.tokenizer.decode(tokens.unsqueeze(0))
+        return reconstructed.squeeze(0)
 
 def compress(tokenizer: Path, autoregressive: Path, image: Path, compressed_image: Path):
     """
