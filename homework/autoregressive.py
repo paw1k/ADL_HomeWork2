@@ -88,16 +88,14 @@ class AutoregressiveModel(torch.nn.Module):
 
     def generate(self, B: int = 1, h: int = 30, w: int = 20, device=None) -> torch.Tensor:  # noqa
 #         raise NotImplementedError()
-        device = device or torch.device('cpu')
-        output = torch.zeros((B, h * w), dtype=torch.long, device=device)
-        for i in range(h * w):
-            input_seq = torch.roll(output, shifts=1, dims=1)
-            input_seq[:, 0] = 0
-            input_reshaped = input_seq.view(B, h, w)
-            with torch.no_grad():
-                logits, _ = self.forward(input_reshaped)
-            logits_flat = logits.view(B, h * w, -1)
-            next_logits = logits_flat[:, i, :]
-            next_token = torch.argmax(next_logits, dim=-1)
-            output[:, i] = next_token
-        return output.view(B, h, w)
+        device = device or torch.device("cpu")
+        total_len = h * w
+        output_tokens = torch.zeros((B, total_len), dtype=torch.long, device=device)
+        for i in range(total_len):
+            partial = output_tokens.view(B, h, w)
+            logits, _ = self.forward(partial)
+            logits = logits.view(B, total_len, self.n_tokens)
+            next_logit = logits[:, i, :]
+            next_token = torch.argmax(next_logit, dim=-1)
+            output_tokens[:, i] = next_token
+        return output_tokens.view(B, h, w)
