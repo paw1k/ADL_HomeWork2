@@ -119,8 +119,8 @@ class BSQPatchAutoEncoder(PatchAutoEncoder, Tokenizer):
     def decode_index(self, x: torch.Tensor) -> torch.Tensor:
 #         raise NotImplementedError()
         codes = self.bsq._index_to_code(x)
-        reconstructed_patches = self.decode(codes)
-        return self.unpatchify(reconstructed_patches)
+        latent = self.bsq.decode(codes)
+        return super().decode(latent)
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
 #         raise NotImplementedError()
@@ -150,16 +150,16 @@ class BSQPatchAutoEncoder(PatchAutoEncoder, Tokenizer):
         """
 #         raise NotImplementedError()
         codes = self.encode(x)
-        reconstructed_patches = self.decode(codes)
-        reconstructed_image = self.unpatchify(reconstructed_patches)
+        reconstruction = self.decode(codes)
 
         indices = self.bsq._code_to_index(codes)
         cnt = torch.bincount(indices.flatten(), minlength=2 ** self.codebook_bits)
         cb0 = (cnt == 0).float().mean().detach()
         cb2 = (cnt <= 2).float().mean().detach()
-        additional_losses = {
+
+        stats = {
             "cb0": cb0,
-            "cb2": cb2
+            "cb2": cb2,
         }
 
-        return reconstructed_image, additional_losses
+        return reconstruction, stats

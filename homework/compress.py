@@ -23,7 +23,7 @@ class Compressor:
         """
 #         raise NotImplementedError()
         with torch.no_grad():
-            tokens = self.tokenizer.encode(x.unsqueeze(0))  # Add batch dimension
+            tokens = self.tokenizer.encode(x.unsqueeze(0))
         tokens = tokens.squeeze(0)
         seq_len = tokens.shape[0]
         vocab_size = self.autoregressive.vocab_size
