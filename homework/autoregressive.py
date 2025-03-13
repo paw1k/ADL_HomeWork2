@@ -69,8 +69,7 @@ class AutoregressiveModel(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
 #         raise NotImplementedError()
-        if x.dim() == 4:
-            x = x.squeeze(1)
+        x = x.squeeze()
         B, h, w = x.shape
         seq_len = h * w
         x_flat = x.view(B, seq_len)
