@@ -65,25 +65,26 @@ class AutoregressiveModel(torch.nn.Module):
         )
         self.transformer_encoder = torch.nn.TransformerEncoder(encoder_layer, num_layers=2)
         self.output_layer = torch.nn.Linear(d_latent, n_tokens)
-        self.n_tokens = n_tokens
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:
 #         raise NotImplementedError()
-        x = x.squeeze()
-        B, h, w = x.shape
-        seq_len = h * w
+        B, H, W = x.shape
+        seq_len = H * W
+
         x_flat = x.view(B, seq_len)
+
         embeddings = self.embedding(x_flat)
 
-        shifted_embeds = torch.zeros_like(embeddings)
-        shifted_embeds[:, 1:] = embeddings[:, :-1].clone()
+        shifted = torch.zeros_like(embeddings)
+        shifted[:, 1:] = embeddings[:, :-1].clone()
 
-        mask = torch.nn.Transformer.generate_square_subsequent_mask(seq_len).to(x.device)
-        transformer_output = self.transformer_encoder(shifted_embeds, mask)
+        mask = torch.nn.Transformer.generate_square_subsequent_mask(seq_len).to(embeddings.device)
+        transformed = self.transformer_encoder(shifted, mask=mask)
+        logits = self.output_layer(transformed)
+        logits = logits.view(B, H, W, self.n_tokens)
 
-        logits = self.output_layer(transformer_output)
-        logits = logits.view(B, h, w, self.n_tokens)
         return logits, {}
+
 
     def generate(self, B: int = 1, h: int = 30, w: int = 20, device=None) -> torch.Tensor:  # noqa
 #         raise NotImplementedError()
