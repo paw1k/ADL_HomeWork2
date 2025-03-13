@@ -56,15 +56,15 @@ class AutoregressiveModel(torch.nn.Module):
     def __init__(self, d_latent: int = 128, n_tokens: int = 2**10):
         super().__init__()
 #         raise NotImplementedError()
-        self.embedding = nn.Embedding(n_tokens, d_latent)
-        encoder_layer = nn.TransformerEncoderLayer(
+        self.embedding = torch.nn.Embedding(n_tokens, d_latent)
+        encoder_layer = torch.nn.TransformerEncoderLayer(
             d_model=d_latent,
             nhead=8,
             dim_feedforward=4*d_latent,
             batch_first=True
         )
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=2)
-        self.output_layer = nn.Linear(d_latent, n_tokens)
+        self.transformer_encoder = torch.nn.TransformerEncoder(encoder_layer, num_layers=2)
+        self.output_layer = torch.nn.Linear(d_latent, n_tokens)
         self.n_tokens = n_tokens
 
     def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, dict[str, torch.Tensor]]:

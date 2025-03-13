@@ -48,8 +48,8 @@ class BSQ(torch.nn.Module):
         super().__init__()
 #         raise NotImplementedError()
         self._codebook_bits = codebook_bits
-        self.encoder = nn.Linear(embedding_dim, codebook_bits)
-        self.decoder = nn.Linear(codebook_bits, embedding_dim)
+        self.encoder = torch.nn.Linear(embedding_dim, codebook_bits)
+        self.decoder = torch.nn.Linear(codebook_bits, embedding_dim)
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
         """
